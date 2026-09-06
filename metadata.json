@@ -1,0 +1,6 @@
+{
+  "name": "AeroTwin AI",
+  "description": "AI-Enabled Real-Time Digital Twin System for Health Monitoring, Fault Prediction, and Mission Reliability of MALE UAV Aero Piston Engines (SIH26054)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
