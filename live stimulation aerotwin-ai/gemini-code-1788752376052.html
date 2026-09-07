@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rotax 915 iS 3D Kinematic Engine Twin</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #0d1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #e6edf3;
+      user-select: none;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    /* UI Overlay Panel */
+    .ui-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(22, 27, 34, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 16px;
+      width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 12px 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #58a6ff;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #8b949e;
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: #238636;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+    button {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+    button.active {
+      background: #238636;
+      border-color: #2ea043;
+      color: #ffffff;
+    }
+    /* Part Inspector Sidebar */
+    #inspector {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(22, 27, 34, 0.9);
+      border: 1px solid #30363d;
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 16px;
+      width: 280px;
+      display: none;
+      z-index: 10;
+    }
+    #inspector h2 {
+      font-size: 14px;
+      margin-top: 0;
+      color: #f0883e;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 6px;
+    }
+    .telemetry-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin: 6px 0;
+    }
+    .telemetry-val {
+      font-family: monospace;
+      color: #7ee787;
+    }
+    /* Telemetry HUD */
+    #hud {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22, 27, 34, 0.85);
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      padding: 8px 24px;
+      display: flex;
+      gap: 24px;
+      font-family: monospace;
+      font-size: 13px;
+      z-index: 10;
+    }
+    .hud-stat span {
+      color: #8b949e;
+      font-size: 10px;
+      display: block;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <div class="ui-panel">
+    <h1>Rotax 915 iS Engine Twin</h1>
+    
+    <div class="control-group">
+      <label>Engine RPM: <span id="rpm-val">2500</span></label>
+      <input type="range" id="rpm-slider" min="0" max="5800" value="2500">
+    </div>
+
+    <div class="control-group">
+      <label>EGT (Exhaust Temp): <span id="egt-val">650 °C</span></label>
+      <input type="range" id="egt-slider" min="200" max="950" value="650">
+    </div>
+
+    <div class="control-group">
+      <label>Vibration RMS: <span id="vib-val">1.2 mm/s</span></label>
+      <input type="range" id="vib-slider" min="0" max="4.8" step="0.1" value="1.2">
+    </div>
+
+    <div class="btn-grid">
+      <button id="btn-xray">X-Ray Mode</button>
+      <button id="btn-thermal">Thermal Heatmap</button>
+      <button id="btn-autotour">Auto-Tour</button>
+      <button id="btn-2d">2D Cross-Section</button>
+    </div>
+
+    <div style="margin-top:12px; font-size:11px; color:#8b949e;">CAMERA PRESETS</div>
+    <div class="btn-grid">
+      <button onclick="setCamera('ISO')">ISO View</button>
+      <button onclick="setCamera('BOXER')">Boxer Top</button>
+      <button onclick="setCamera('PROP')">Prop Front</button>
+      <button onclick="setCamera('TURBO')">Turbo Rear</button>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div class="hud-stat"><span>CRANK RPM</span><b id="hud-rpm">2500</b></div>
+    <div class="hud-stat"><span>PROP RPM (2.43:1)</span><b id="hud-proprpm">1028</b></div>
+    <div class="hud-stat"><span>MAP</span><b id="hud-map">38.2 inHg</b></div>
+    <div class="hud-stat"><span>FIRING ORDER</span><b>1–3–4–2</b></div>
+  </div>
+
+  <div id="inspector">
+    <h2 id="insp-title">Component Inspector</h2>
+    <div class="telemetry-item"><span>Status:</span><span class="telemetry-val" id="insp-status">Nominal</span></div>
+    <div class="telemetry-item"><span>Operating Temp:</span><span class="telemetry-val" id="insp-temp">88 °C</span></div>
+    <div class="telemetry-item"><span>Vibration Load:</span><span class="telemetry-val" id="insp-vib">0.05 g</span></div>
+    <div class="telemetry-item"><span>Expected Baseline:</span><span class="telemetry-val" id="insp-base">Normal Range</span></div>
+    <p id="insp-desc" style="font-size:11px; color:#8b949e; margin-top:10px; line-height:1.4;"></p>
+    <button style="width:100%; margin-top:10px;" onclick="closeInspector()">Close Inspector</button>
+  </div>
+
+  <script>
+    // --- Application State ---
+    const state = {
+      rpm: 2500,
+      egt: 650,
+      vibration: 1.2,
+      xray: false,
+      thermal: false,
+      autoTour: false,
+      is2D: false,
+      crankAngle: 0
+    };
+
+    // --- Scene Setup ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d1117);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(3, 2.5, 4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // --- Lighting ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const pointLight = new THREE.PointLight(0x38bdf8, 0.8, 10);
+    pointLight.position.set(-2, 2, -2);
+    scene.add(pointLight);
+
+    // --- Materials Store ---
+    const materials = {
+      aluminum: new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 }),
+      crankcase: new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5, roughness: 0.5 }),
+      xray: new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.25, wireframe: false }),
+      piston: new THREE.MeshStandardMaterial({ color: 0xc084fc, metalness: 0.9, roughness: 0.2 }),
+      steel: new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.1 }),
+      exhaust: new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.4 }),
+      propeller: new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 }),
+      bladeTip: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 }),
+      propBlur: new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0 }),
+      combustionFlash: new THREE.MeshBasicMaterial({ color: 0xffa500 }),
+      heatMap: new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.3, roughness: 0.3 })
+    };
+
+    // --- Engine Mechanics Object Graph ---
+    const engineGroup = new THREE.Group();
+    scene.add(engineGroup);
+
+    // 1. Crankcase (Housing)
+    const crankcaseGeo = new THREE.BoxGeometry(0.8, 0.6, 1.6);
+    const crankcaseMesh = new THREE.Mesh(crankcaseGeo, materials.crankcase);
+    crankcaseMesh.name = "Crankcase & Bearings";
+    engineGroup.add(crankcaseMesh);
+
+    // 2. Cylinders (4 Opposed Cylinders for Boxer Engine)
+    const cylinders = [];
+    const combustionLights = [];
+    const cylinderPositions = [
+      { x: 0.7, y: 0, z: 0.4, id: 1 },  // Cyl 1 (Right Front)
+      { x: -0.7, y: 0, z: 0.4, id: 2 }, // Cyl 2 (Left Front)
+      { x: 0.7, y: 0, z: -0.4, id: 3 }, // Cyl 3 (Right Rear)
+      { x: -0.7, y: 0, z: -0.4, id: 4 } // Cyl 4 (Left Rear)
+    ];
+
+    cylinderPositions.forEach(pos => {
+      const cylGroup = new THREE.Group();
+      cylGroup.position.set(pos.x, pos.y, pos.z);
+
+      // Cylinder Block Tube
+      const cylGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.6, 16, 1, true);
+      cylGeo.rotateZ(Math.PI / 2);
+      const cylMesh = new THREE.Mesh(cylGeo, materials.aluminum);
+      cylMesh.name = `Cylinder ${pos.id}`;
+      cylGroup.add(cylMesh);
+
+      // Combustion Chamber Light
+      const fireLight = new THREE.PointLight(0xff6600, 0, 1.5);
+      fireLight.position.set(pos.x > 0 ? 0.2 : -0.2, 0, 0);
+      cylGroup.add(fireLight);
+      combustionLights[pos.id - 1] = fireLight;
+
+      engineGroup.add(cylGroup);
+      cylinders.push(cylGroup);
+    });
+
+    // 3. Pistons & Connecting Rods
+    const pistons = [];
+    const pistonBoreOffset = 0.45;
+    const strokeRadius = 0.15;
+
+    cylinderPositions.forEach((pos, i) => {
+      const pistonMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.25, 16), materials.piston);
+      pistonMesh.rotation.z = Math.PI / 2;
+      pistonMesh.name = `Piston ${pos.id}`;
+      engineGroup.add(pistonMesh);
+      pistons.push({ mesh: pistonMesh, side: pos.x > 0 ? 1 : -1, id: pos.id, z: pos.z });
+    });
+
+    // 4. Exhaust Headers Tube (Glowing System)
+    const exhaustCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.7, -0.2, 0.4),
+      new THREE.Vector3(0.9, -0.4, 0.0),
+      new THREE.Vector3(0.7, -0.2, -0.4),
+      new THREE.Vector3(0.0, -0.5, -0.9),
+      new THREE.Vector3(-0.5, -0.3, -1.2)
+    ]);
+    const exhaustGeo = new THREE.TubeGeometry(exhaustCurve, 32, 0.06, 8, false);
+    const exhaustMesh = new THREE.Mesh(exhaustGeo, materials.exhaust);
+    exhaustMesh.name = "Exhaust Header Tubes";
+    engineGroup.add(exhaustMesh);
+
+    // 5. Reduction Gearbox & Propeller
+    const gearboxGeo = new THREE.BoxGeometry(0.5, 0.5, 0.4);
+    const gearboxMesh = new THREE.Mesh(gearboxGeo, materials.aluminum);
+    gearboxMesh.position.set(0, 0.1, 0.95);
+    gearboxMesh.name = "Reduction Gearbox (2.43:1)";
+    engineGroup.add(gearboxMesh);
+
+    const propGroup = new THREE.Group();
+    propGroup.position.set(0, 0.1, 1.2);
+    engineGroup.add(propGroup);
+
+    const propSpinner = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.3, 16), materials.aluminum);
+    propSpinner.rotation.x = Math.PI / 2;
+    propGroup.add(propSpinner);
+
+    // 3 Aerodynamic Blades
+    for (let i = 0; i < 3; i++) {
+      const bladePivot = new THREE.Group();
+      bladePivot.rotation.z = (i * Math.PI * 2) / 3;
+      
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.02), materials.propeller);
+      blade.position.y = 0.6;
+      blade.rotation.y = 0.2; // Pitch angle
+      blade.name = "Composite Propeller";
+      
+      const bladeTip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.15, 0.025), materials.bladeTip);
+      bladeTip.position.y = 1.12;
+      blade.add(bladeTip);
+
+      bladePivot.add(blade);
+      propGroup.add(bladePivot);
+    }
+
+    // High-Speed Propeller Blur Disc
+    const blurGeo = new THREE.RingGeometry(0.2, 1.2, 32);
+    const blurMesh = new THREE.Mesh(blurGeo, materials.propBlur);
+    blurMesh.position.set(0, 0.1, 1.21);
+    engineGroup.add(blurMesh);
+
+    // 6. Turbocharger & Intercooler Core
+    const turboGroup = new THREE.Group();
+    turboGroup.position.set(-0.5, -0.2, -1.2);
+
+    const housingGeo = new THREE.TorusGeometry(0.2, 0.08, 12, 24);
+    const turboHousing = new THREE.Mesh(housingGeo, materials.steel);
+    turboHousing.name = "Turbocharger Compressor";
+    turboGroup.add(turboHousing);
+
+    const impellerGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.05, 8);
+    const impeller = new THREE.Mesh(impellerGeo, materials.aluminum);
+    impeller.rotation.x = Math.PI / 2;
+    turboGroup.add(impeller);
+
+    engineGroup.add(turboGroup);
+
+    // --- Kinematics & Physics Engine Loop ---
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      const crankSpeed = (state.rpm / 60) * Math.PI * 2; // Rad/s
+      state.crankAngle += crankSpeed * delta;
+
+      // 1. Reciprocating Boxer Kinematics (1-3-4-2 Firing Order)
+      // Cyl 1 & 2 are opposing, Cyl 3 & 4 are opposing with 180° crank offset
+      const offsetAngles = { 1: 0, 2: 0, 3: Math.PI, 4: Math.PI };
+
+      pistons.forEach(p => {
+        const angle = state.crankAngle + offsetAngles[p.id];
+        // Reciprocating motion equation
+        const displacement = Math.cos(angle) * strokeRadius;
+        p.mesh.position.x = p.side * (pistonBoreOffset + displacement);
+        p.mesh.position.z = p.z;
+      });
+
+      // 2. Firing Order Light Flashes (1-3-4-2)
+      if (state.rpm > 50) {
+        const cycleAngle = (state.crankAngle % (Math.PI * 4)); // 720 deg 4-stroke cycle
+        const fireIdx = Math.floor((cycleAngle / (Math.PI * 4)) * 4);
+        const firingOrder = [0, 2, 3, 1]; // Array indices corresponding to 1-3-4-2
+        
+        combustionLights.forEach((light, i) => {
+          if (i === firingOrder[fireIdx]) {
+            light.intensity = 2.5 + Math.random() * 0.5;
+          } else {
+            light.intensity = Math.max(0, light.intensity - delta * 15);
+          }
+        });
+      } else {
+        combustionLights.forEach(l => l.intensity = 0);
+      }
+
+      // 3. Propeller Motion & Blur Shader Dynamics (2.43:1 Gear Reduction)
+      const propSpeed = crankSpeed / 2.43;
+      propGroup.rotation.z -= propSpeed * delta;
+      
+      // Dynamic disc blur opacity based on RPM
+      const blurOpacity = Math.min(0.8, (state.rpm / 5800) * 0.9);
+      materials.propBlur.opacity = state.rpm > 1200 ? blurOpacity : 0;
+
+      // 4. Turbocharger Impeller Motion
+      const mapValue = 29.92 + (state.rpm / 5800) * 18.0; // Dynamic Manifold Pressure
+      impeller.rotation.z += crankSpeed * 2.5 * delta;
+      document.getElementById('hud-map').innerText = `${mapValue.toFixed(1)} inHg`;
+
+      // 5. Dynamic Thermal Glow Shader on Exhaust
+      const egtNormalized = Math.max(0, (state.egt - 400) / 550); // Normalized 0 to 1
+      const thermalColor = new THREE.Color(0x334155).lerp(new THREE.Color(0xff3300), egtNormalized);
+      materials.exhaust.color = thermalColor;
+      materials.exhaust.emissive = new THREE.Color(0xff2200).multiplyScalar(egtNormalized * 0.8);
+
+      // 6. Mechanical Vibration Jitter
+      if (state.vibration > 0) {
+        const jitterX = (Math.random() - 0.5) * (state.vibration * 0.003);
+        const jitterY = (Math.random() - 0.5) * (state.vibration * 0.003);
+        engineGroup.position.set(jitterX, jitterY, 0);
+      } else {
+        engineGroup.position.set(0, 0, 0);
+      }
+
+      // 7. Auto-Tour Camera Rotation
+      if (state.autoTour) {
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 2.0;
+      } else {
+        controls.autoRotate = false;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // --- UI Listeners & Controls Binding ---
+    document.getElementById('rpm-slider').addEventListener('input', (e) => {
+      state.rpm = parseFloat(e.target.value);
+      document.getElementById('rpm-val').innerText = state.rpm;
+      document.getElementById('hud-rpm').innerText = state.rpm;
+      document.getElementById('hud-proprpm').innerText = Math.round(state.rpm / 2.43);
+    });
+
+    document.getElementById('egt-slider').addEventListener('input', (e) => {
+      state.egt = parseFloat(e.target.value);
+      document.getElementById('egt-val').innerText = `${state.egt} °C`;
+    });
+
+    document.getElementById('vib-slider').addEventListener('input', (e) => {
+      state.vibration = parseFloat(e.target.value);
+      document.getElementById('vib-val').innerText = `${state.vibration} mm/s`;
+    });
+
+    // Toggle X-Ray
+    document.getElementById('btn-xray').addEventListener('click', (e) => {
+      state.xray = !state.xray;
+      crankcaseMesh.material = state.xray ? materials.xray : materials.crankcase;
+      e.target.classList.toggle('active', state.xray);
+    });
+
+    // Toggle Thermal Heatmap
+    document.getElementById('btn-thermal').addEventListener('click', (e) => {
+      state.thermal = !state.thermal;
+      cylinders.forEach(cyl => {
+        cyl.children[0].material = state.thermal ? materials.heatMap : materials.aluminum;
+      });
+      e.target.classList.toggle('active', state.thermal);
+    });
+
+    // Toggle Auto-Tour
+    document.getElementById('btn-autotour').addEventListener('click', (e) => {
+      state.autoTour = !state.autoTour;
+      e.target.classList.toggle('active', state.autoTour);
+    });
+
+    // Toggle 2D Cross-Section View
+    document.getElementById('btn-2d').addEventListener('click', (e) => {
+      state.is2D = !state.is2D;
+      e.target.classList.toggle('active', state.is2D);
+      if (state.is2D) {
+        camera.position.set(0, 4, 0);
+        controls.target.set(0, 0, 0);
+      } else {
+        setCamera('ISO');
+      }
+    });
+
+    // Camera Preset Handler
+    function setCamera(preset) {
+      state.autoTour = false;
+      document.getElementById('btn-autotour').classList.remove('active');
+      
+      switch (preset) {
+        case 'ISO':
+          camera.position.set(3, 2.5, 4);
+          controls.target.set(0, 0, 0);
+          break;
+        case 'BOXER':
+          camera.position.set(0, 3.5, 0.01);
+          controls.target.set(0, 0, 0);
+          break;
+        case 'PROP':
+          camera.position.set(0, 0.3, 3.5);
+          controls.target.set(0, 0.1, 0.95);
+          break;
+        case 'TURBO':
+          camera.position.set(-2, 0.5, -2.5);
+          controls.target.set(-0.5, -0.2, -1.2);
+          break;
+      }
+    }
+
+    // --- 3D Raycaster Part Inspector ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const inspectorData = {
+      "Crankcase & Bearings": { status: "Nominal", temp: "72 °C", vib: "0.8 mm/s", base: "< 2.5 mm/s", desc: "Forged aluminum crankcase with reinforced main bearing saddles housing the engine crankshaft." },
+      "Cylinder 1": { status: "Nominal", temp: "115 °C", vib: "1.2 mm/s", base: "90 - 135 °C", desc: "Right-front air/liquid cooled cylinder head with dual Redundant ECU spark plug ignition." },
+      "Cylinder 2": { status: "Nominal", temp: "118 °C", vib: "1.1 mm/s", base: "90 - 135 °C", desc: "Left-front opposition cylinder block with nickel-silicon carbide (Nikasil) coated barrel." },
+      "Cylinder 3": { status: "Nominal", temp: "112 °C", vib: "1.3 mm/s", base: "90 - 135 °C", desc: "Right-rear cylinder with integrated CHT sensor port monitoring head temperatures." },
+      "Cylinder 4": { status: "Nominal", temp: "116 °C", vib: "1.2 mm/s", base: "90 - 135 °C", desc: "Left-rear cylinder block connected to common port fuel injector manifold." },
+      "Exhaust Header Tubes": { status: "High Thermal", temp: `${state.egt} °C`, vib: "2.1 mm/s", base: "550 - 850 °C", desc: "Stainless steel tuned exhaust header runners feeding high-enthalpy gas to the turbine housing." },
+      "Reduction Gearbox (2.43:1)": { status: "Nominal", temp: "82 °C", vib: "0.4 mm/s", base: "< 1.5 mm/s", desc: "Helical spur gear reduction unit with integrated torsional vibration overload clutch." },
+      "Composite Propeller": { status: "Balanced", temp: "28 °C", vib: "0.3 mm/s", base: "< 0.8 mm/s", desc: "3-blade carbon fiber constant-speed propeller operating at synchronized 2.43:1 gear ratio." },
+      "Turbocharger Compressor": { status: "Active Boost", temp: "145 °C", vib: "0.9 mm/s", base: "120 - 180 °C", desc: "Electronically controlled wastegate turbocharger maintaining full manifold pressure up to critical altitude." }
+    };
+
+    window.addEventListener('click', (event) => {
+      // Ignore clicks on UI elements
+      if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(engineGroup.children, true);
+
+      if (intersects.length > 0) {
+        let hitObj = intersects[0].object;
+        while (hitObj.parent && hitObj.parent !== engineGroup && !hitObj.name) {
+          hitObj = hitObj.parent;
+        }
+
+        const data = inspectorData[hitObj.name];
+        if (data) {
+          document.getElementById('insp-title').innerText = hitObj.name;
+          document.getElementById('insp-status').innerText = data.status;
+          document.getElementById('insp-temp').innerText = hitObj.name.includes('Exhaust') ? `${state.egt} °C` : data.temp;
+          document.getElementById('insp-vib').innerText = `${state.vibration} mm/s`;
+          document.getElementById('insp-base').innerText = data.base;
+          document.getElementById('insp-desc').innerText = data.desc;
+          document.getElementById('inspector').style.display = 'block';
+        }
+      }
+    });
+
+    function closeInspector() {
+      document.getElementById('inspector').style.display = 'none';
+    }
+
+    // Window Resize Handling
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start Simulation
+    animate();
+  </script>
+</body>
+</html>
