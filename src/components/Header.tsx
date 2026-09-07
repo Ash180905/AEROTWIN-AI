@@ -14,13 +14,14 @@ import {
   Box,
   Monitor,
   ExternalLink,
-  ArrowRightLeft
+  ArrowRightLeft,
+  TrendingUp
 } from 'lucide-react';
 import { UAVFleetItem } from '../types';
 
 interface HeaderProps {
-  activeTab: 'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport';
-  setActiveTab: (tab: 'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport') => void;
+  activeTab: 'twin' | '3d-twin' | 'trends' | 'counterfactual' | 'replay' | 'whatif' | 'passport';
+  setActiveTab: (tab: 'twin' | '3d-twin' | 'trends' | 'counterfactual' | 'replay' | 'whatif' | 'passport') => void;
   selectedUav: UAVFleetItem;
   setSelectedUavId: (id: string) => void;
   fleet: UAVFleetItem[];
@@ -173,6 +174,26 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'bg-emerald-100 text-emerald-800'
             }`}>
               60 FPS
+            </span>
+          </button>
+
+          <button
+            id="tab-trends"
+            onClick={() => setActiveTab('trends')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap cursor-pointer ${
+              activeTab === 'trends'
+                ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
+            <span>Performance Trends</span>
+            <span className={`text-[9px] px-1 py-0.5 rounded font-mono font-bold ${
+              activeTab === 'trends'
+                ? 'bg-indigo-500/80 text-white'
+                : 'bg-amber-100 text-amber-800'
+            }`}>
+              50 pts
             </span>
           </button>
 

@@ -32,6 +32,7 @@ import { ExternalSimBridgeModal } from './components/ExternalSimBridgeModal';
 import { ExternalSimSplitView } from './components/ExternalSimSplitView';
 import { Dedicated3DTwinView } from './components/Dedicated3DTwinView';
 import { DualSoftwareWorkspace } from './components/DualSoftwareWorkspace';
+import { PerformanceTrendsView } from './components/PerformanceTrendsView';
 
 export default function App() {
   // Check URL param ?view=3d or ?view=3d-twin for standalone popouts
@@ -46,7 +47,7 @@ export default function App() {
   }, []);
 
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport'>('twin');
+  const [activeTab, setActiveTab] = useState<'twin' | '3d-twin' | 'trends' | 'counterfactual' | 'replay' | 'whatif' | 'passport'>('twin');
   const [isDualSoftwareMode, setIsDualSoftwareMode] = useState<boolean>(false);
 
   // Airframe selection
@@ -485,6 +486,18 @@ export default function App() {
                 externalAppUrl={externalSimUrl}
                 onBroadcastEvent={broadcastToExternalSim}
                 onToggleDualPane={() => setIsDualSoftwareMode(true)}
+              />
+            )}
+
+            {/* VIEW: PERFORMANCE DEGRADATION TRENDS (RECHARTS 50-POINT TRAJECTORY) */}
+            {activeTab === 'trends' && (
+              <PerformanceTrendsView
+                telemetry={telemetry}
+                physics={physics}
+                diagnosis={diagnosis}
+                activePreset={activePreset}
+                onSelectPreset={setActivePreset}
+                isRunning={isRunning}
               />
             )}
 
