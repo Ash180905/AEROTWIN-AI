@@ -31,21 +31,23 @@ import { SubsystemHealthAlertOverlay } from './components/SubsystemHealthAlertOv
 import { ExternalSimBridgeModal } from './components/ExternalSimBridgeModal';
 import { ExternalSimSplitView } from './components/ExternalSimSplitView';
 import { Dedicated3DTwinView } from './components/Dedicated3DTwinView';
+import { DualSoftwareWorkspace } from './components/DualSoftwareWorkspace';
 
 export default function App() {
-  // Navigation tabs - checks URL param ?view=3d or ?view=3d-twin for standalone popouts
-  const [activeTab, setActiveTab] = useState<'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport'>(() => {
+  // Check URL param ?view=3d or ?view=3d-twin for standalone popouts
+  const isStandalone3DWindow = useMemo(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view');
-      if (view === '3d' || view === '3d-twin') {
-        return '3d-twin';
-      }
-    } catch (e) {
-      // ignore
+      return view === '3d' || view === '3d-twin';
+    } catch {
+      return false;
     }
-    return 'twin';
-  });
+  }, []);
+
+  // Navigation tabs
+  const [activeTab, setActiveTab] = useState<'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport'>('twin');
+  const [isDualSoftwareMode, setIsDualSoftwareMode] = useState<boolean>(false);
 
   // Airframe selection
   const [fleet, setFleet] = useState<UAVFleetItem[]>(SAMPLE_FLEET);
@@ -117,7 +119,24 @@ export default function App() {
       // ignore
     }
 
+    // 4. Save to localStorage for cross-window sync
+    try {
+      localStorage.setItem('aerotwin_live_sync', JSON.stringify({
+        source: 'AEROTWIN_AI',
+        type: eventType,
+        timestamp: Date.now(),
+        payload
+      }));
+    } catch (e) {
+      // ignore
+    }
+
     setLastSentEvent(eventMessage);
+  }, []);
+
+  const handlePopout3DWindow = useCallback(() => {
+    const url = window.location.origin + window.location.pathname + '?view=3d-twin';
+    window.open(url, 'AeroTwin_3D_VirtualTwin', 'width=1340,height=880,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
   }, []);
 
   const handleSendTestPing = () => {
@@ -304,12 +323,40 @@ export default function App() {
     });
   }, []);
 
+  // If opened with ?view=3d or ?view=3d-twin, render as standalone 3D Virtual Twin software
+  if (isStandalone3DWindow) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-2 sm:p-4 flex flex-col justify-center">
+        <Dedicated3DTwinView
+          telemetry={telemetry}
+          physics={physics}
+          health={health}
+          diagnosis={diagnosis}
+          activePreset={activePreset}
+          onSelectPreset={setActivePreset}
+          onThrottleChange={handleThrottleChange}
+          onAltitudeChange={handleAltitudeChange}
+          onReset={handleReset}
+          onBackToCockpit={() => {
+            window.location.href = window.location.pathname;
+          }}
+          externalAppUrl={externalSimUrl}
+          onBroadcastEvent={broadcastToExternalSim}
+          isStandalone={true}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Navigation & Status Bar */}
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setIsDualSoftwareMode(false);
+          setActiveTab(tab);
+        }}
         selectedUav={selectedUav}
         setSelectedUavId={setSelectedUavId}
         fleet={fleet}
@@ -318,6 +365,9 @@ export default function App() {
         onOpenBridgeModal={() => setIsBridgeModalOpen(true)}
         isSplitViewActive={isSplitViewActive}
         onToggleSplitView={() => setIsSplitViewActive(!isSplitViewActive)}
+        isDualSoftwareMode={isDualSoftwareMode}
+        onToggleDualSoftwareMode={() => setIsDualSoftwareMode(!isDualSoftwareMode)}
+        onPopout3DWindow={handlePopout3DWindow}
       />
 
       {/* External Simulation Split View (if toggled) */}
@@ -333,112 +383,144 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {/* VIEW 1: LIVE DIGITAL TWIN COCKPIT */}
-        {activeTab === 'twin' && (
-          <div className="space-y-6">
-            {/* Fault Injector & Telemetry Stream Controller */}
-            <FaultInjectorBar
-              activePreset={activePreset}
-              onSelectPreset={setActivePreset}
-              isRunning={isRunning}
-              setIsRunning={setIsRunning}
-              simSpeed={simSpeed}
-              setSimSpeed={setSimSpeed}
-              onReset={handleReset}
-              telemetry={telemetry}
-              onThrottleChange={handleThrottleChange}
-              onAltitudeChange={handleAltitudeChange}
-            />
-
-            {/* Instantaneous Digital Telemetry Gauges */}
-            <TelemetryGaugesBar
-              telemetry={telemetry}
-              physics={physics}
-            />
-
-            {/* Primary Grid: 2D/3D Engine Virtual Replica & Subsystem Health Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <DigitalTwinCanvas
-                  telemetry={telemetry}
-                  physics={physics}
-                  health={health}
-                  diagnosis={diagnosis}
-                  onOpenDedicated3D={() => setActiveTab('3d-twin')}
-                />
-              </div>
-              <div className="lg:col-span-1">
-                <SubsystemHealthPanel
-                  health={health}
-                  diagnosis={diagnosis}
-                />
-              </div>
-            </div>
-
-            {/* Secondary Grid: Physics Residual Table & RUL / Mission Reliability */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ResidualAnalysisView
-                telemetry={telemetry}
-                physics={physics}
-              />
-              <RulMissionReliability
-                rul={rul}
-                reliability={reliability}
-                diagnosis={diagnosis}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* VIEW: DEDICATED 3D VIRTUAL TWIN STUDIO (ISOLATED 60 FPS PERFORMANCE) */}
-        {activeTab === '3d-twin' && (
-          <Dedicated3DTwinView
+        {/* DUAL SOFTWARE MODE: Both AeroTwin AI & 3D Virtual Twin active side-by-side */}
+        {isDualSoftwareMode ? (
+          <DualSoftwareWorkspace
             telemetry={telemetry}
             physics={physics}
             health={health}
             diagnosis={diagnosis}
             activePreset={activePreset}
             onSelectPreset={setActivePreset}
+            isRunning={isRunning}
+            setIsRunning={setIsRunning}
+            simSpeed={simSpeed}
+            setSimSpeed={setSimSpeed}
+            onReset={handleReset}
             onThrottleChange={handleThrottleChange}
             onAltitudeChange={handleAltitudeChange}
-            onReset={handleReset}
-            onBackToCockpit={() => setActiveTab('twin')}
-            externalAppUrl={externalSimUrl}
+            onApplyOption={handleApplyOption}
+            rul={rul}
+            reliability={reliability}
+            counterfactualOptions={counterfactualOptions}
+            onOpenDedicatedTab={() => {
+              setIsDualSoftwareMode(false);
+              setActiveTab('3d-twin');
+            }}
+            onPopoutWindow={handlePopout3DWindow}
             onBroadcastEvent={broadcastToExternalSim}
           />
-        )}
+        ) : (
+          <>
+            {/* VIEW 1: LIVE DIGITAL TWIN COCKPIT */}
+            {activeTab === 'twin' && (
+              <div className="space-y-6">
+                {/* Fault Injector & Telemetry Stream Controller */}
+                <FaultInjectorBar
+                  activePreset={activePreset}
+                  onSelectPreset={setActivePreset}
+                  isRunning={isRunning}
+                  setIsRunning={setIsRunning}
+                  simSpeed={simSpeed}
+                  setSimSpeed={setSimSpeed}
+                  onReset={handleReset}
+                  telemetry={telemetry}
+                  onThrottleChange={handleThrottleChange}
+                  onAltitudeChange={handleAltitudeChange}
+                />
 
-        {/* VIEW 2: COUNTERFACTUAL ADVISOR & EXPLAINABLE AI (XAI) */}
-        {activeTab === 'counterfactual' && (
-          <div className="space-y-6">
-            <CounterfactualAdvisor
-              options={counterfactualOptions}
-              telemetry={telemetry}
-              diagnosis={diagnosis}
-              onApplyOption={handleApplyOption}
-            />
-            <XaiDiagnosisPanel
-              diagnosis={diagnosis}
-            />
-          </div>
-        )}
+                {/* Instantaneous Digital Telemetry Gauges */}
+                <TelemetryGaugesBar
+                  telemetry={telemetry}
+                  physics={physics}
+                />
 
-        {/* VIEW 3: MISSION 034 REPLAY & TIMELINE SCRUBBER */}
-        {activeTab === 'replay' && (
-          <MissionReplayView />
-        )}
+                {/* Primary Grid: 2D/3D Engine Virtual Replica & Subsystem Health Panel */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <DigitalTwinCanvas
+                      telemetry={telemetry}
+                      physics={physics}
+                      health={health}
+                      diagnosis={diagnosis}
+                      onOpenDedicated3D={() => setActiveTab('3d-twin')}
+                    />
+                  </div>
+                  <div className="lg:col-span-1">
+                    <SubsystemHealthPanel
+                      health={health}
+                      diagnosis={diagnosis}
+                    />
+                  </div>
+                </div>
 
-        {/* VIEW 4: WHAT-IF MISSION PLANNER */}
-        {activeTab === 'whatif' && (
-          <WhatIfMissionPlanner />
-        )}
+                {/* Secondary Grid: Physics Residual Table & RUL / Mission Reliability */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <ResidualAnalysisView
+                    telemetry={telemetry}
+                    physics={physics}
+                  />
+                  <RulMissionReliability
+                    rul={rul}
+                    reliability={reliability}
+                    diagnosis={diagnosis}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* VIEW 5: DIGITAL ENGINE PASSPORT & FLEET COMMAND */}
-        {activeTab === 'passport' && (
-          <EnginePassportFleetView
-            onSelectUav={handleSelectUav}
-            selectedUavId={selectedUavId}
-          />
+            {/* VIEW: DEDICATED 3D VIRTUAL TWIN STUDIO (ISOLATED 60 FPS PERFORMANCE) */}
+            {activeTab === '3d-twin' && (
+              <Dedicated3DTwinView
+                telemetry={telemetry}
+                physics={physics}
+                health={health}
+                diagnosis={diagnosis}
+                activePreset={activePreset}
+                onSelectPreset={setActivePreset}
+                onThrottleChange={handleThrottleChange}
+                onAltitudeChange={handleAltitudeChange}
+                onReset={handleReset}
+                onBackToCockpit={() => setActiveTab('twin')}
+                externalAppUrl={externalSimUrl}
+                onBroadcastEvent={broadcastToExternalSim}
+                onToggleDualPane={() => setIsDualSoftwareMode(true)}
+              />
+            )}
+
+            {/* VIEW 2: COUNTERFACTUAL ADVISOR & EXPLAINABLE AI (XAI) */}
+            {activeTab === 'counterfactual' && (
+              <div className="space-y-6">
+                <CounterfactualAdvisor
+                  options={counterfactualOptions}
+                  telemetry={telemetry}
+                  diagnosis={diagnosis}
+                  onApplyOption={handleApplyOption}
+                />
+                <XaiDiagnosisPanel
+                  diagnosis={diagnosis}
+                />
+              </div>
+            )}
+
+            {/* VIEW 3: MISSION 034 REPLAY & TIMELINE SCRUBBER */}
+            {activeTab === 'replay' && (
+              <MissionReplayView />
+            )}
+
+            {/* VIEW 4: WHAT-IF MISSION PLANNER */}
+            {activeTab === 'whatif' && (
+              <WhatIfMissionPlanner />
+            )}
+
+            {/* VIEW 5: DIGITAL ENGINE PASSPORT & FLEET COMMAND */}
+            {activeTab === 'passport' && (
+              <EnginePassportFleetView
+                onSelectUav={handleSelectUav}
+                selectedUavId={selectedUavId}
+              />
+            )}
+          </>
         )}
       </main>
 

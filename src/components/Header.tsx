@@ -11,7 +11,10 @@ import {
   FileText,
   WifiOff,
   Lock,
-  Box
+  Box,
+  Monitor,
+  ExternalLink,
+  ArrowRightLeft
 } from 'lucide-react';
 import { UAVFleetItem } from '../types';
 
@@ -23,6 +26,12 @@ interface HeaderProps {
   fleet: UAVFleetItem[];
   isCommsBlackout: boolean;
   setIsCommsBlackout: React.Dispatch<React.SetStateAction<boolean>>;
+  isDualSoftwareMode?: boolean;
+  onToggleDualSoftwareMode?: () => void;
+  onPopout3DWindow?: () => void;
+  onOpenBridgeModal?: () => void;
+  isSplitViewActive?: boolean;
+  onToggleSplitView?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,7 +41,10 @@ export const Header: React.FC<HeaderProps> = ({
   setSelectedUavId,
   fleet,
   isCommsBlackout,
-  setIsCommsBlackout
+  setIsCommsBlackout,
+  isDualSoftwareMode = false,
+  onToggleDualSoftwareMode,
+  onPopout3DWindow
 }) => {
   return (
     <header className="border-b border-slate-200 bg-white text-slate-900 sticky top-0 z-40 shadow-xs">
@@ -216,6 +228,40 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Passport & Fleet</span>
           </button>
         </nav>
+
+        {/* Software Integration Actions: Dual Suite & Window Popout */}
+        <div className="flex items-center gap-2">
+          {onToggleDualSoftwareMode && (
+            <button
+              id="btn-toggle-dual-software"
+              onClick={onToggleDualSoftwareMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer border shadow-xs ${
+                isDualSoftwareMode
+                  ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white border-indigo-500 shadow-indigo-200'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+              }`}
+              title="Run AeroTwin AI & 3D Virtual Twin Side-by-Side as Integrated Softwares"
+            >
+              <Monitor className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Dual Software Mode</span>
+              {isDualSoftwareMode && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+              )}
+            </button>
+          )}
+
+          {onPopout3DWindow && (
+            <button
+              id="btn-popout-header"
+              onClick={onPopout3DWindow}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition cursor-pointer shadow-xs border border-slate-800"
+              title="Open 3D Virtual Twin in a separate independent software window"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Pop-Out 3D Window</span>
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );
