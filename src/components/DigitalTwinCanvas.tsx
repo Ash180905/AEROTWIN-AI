@@ -17,8 +17,11 @@ import {
   Thermometer,
   Gauge,
   X,
-  Activity
+  Activity,
+  Box,
+  Compass
 } from 'lucide-react';
+import { LiveEngine3DView } from './LiveEngine3DView';
 
 interface DigitalTwinCanvasProps {
   telemetry: EngineTelemetry;
@@ -42,6 +45,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   health,
   diagnosis,
 }) => {
+  const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D');
   const [pistonCycle, setPistonCycle] = useState(0);
   const [selectedPart, setSelectedPart] = useState<ComponentDetail | null>(null);
 
@@ -152,6 +156,20 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           ? 'Oil temperature climbing while pressure drops, indicating reduced kinematic viscosity and accelerated hydrodynamic degradation.'
           : 'Lubricant temperature and pressure within normal operating envelope.'
       });
+    } else if (partKey === 'propeller') {
+      setSelectedPart({
+        title: 'Composite Propeller & Reduction Gearbox',
+        category: 'Thrust Generation & Reduction Gear (2.43:1)',
+        status: 'NOMINAL',
+        healthScore: 96,
+        parameters: [
+          { name: 'Propeller Shaft RPM', value: `${Math.round(telemetry.rpm / 2.43)}`, expected: `${Math.round(physics.expectedRpm / 2.43)}`, unit: 'RPM' },
+          { name: 'Gearbox Ratio', value: '2.43:1', expected: '2.43:1', unit: 'ratio' },
+          { name: 'Calculated Dynamic Thrust', value: `${(telemetry.throttle * 4.2).toFixed(0)}`, expected: `${(telemetry.throttle * 4.2).toFixed(0)}`, unit: 'daN' },
+          { name: 'Blade Pitch Angle', value: '22.5', expected: '22.5', unit: 'deg' },
+        ],
+        physicsInsight: 'Torsional vibration damper absorbing propeller harmonic pulses. Gear backlash and tooth contact pattern within aerospace tolerances.'
+      });
     }
   };
 
@@ -168,7 +186,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
               Real-Time Engine Virtual Replica
             </h2>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
-              Rotax 915 iS (4-Cyl Boxer / Piston)
+              Rotax 915 iS (4-Cyl Boxer)
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -176,24 +194,68 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
-            <span className="text-slate-400">RPM:</span>
-            <span className="text-indigo-600 font-bold">{telemetry.rpm}</span>
+        <div className="flex items-center gap-2">
+          {/* View Mode Switcher */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-mono">
+            <button
+              id="btn-viewmode-3d"
+              onClick={() => setViewMode('3D')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                viewMode === '3D' 
+                  ? 'bg-indigo-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Box className="w-3.5 h-3.5" />
+              <span>3D Virtual Twin</span>
+              <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-400/20 text-emerald-300 font-normal">
+                LIVE
+              </span>
+            </button>
+
+            <button
+              id="btn-viewmode-2d"
+              onClick={() => setViewMode('2D')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                viewMode === '2D' 
+                  ? 'bg-indigo-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>2D Cross-Section</span>
+            </button>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
-            <span className="text-slate-400">THROTTLE:</span>
-            <span className="text-emerald-600 font-bold">{telemetry.throttle}%</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
-            <span className="text-slate-400">ALTITUDE:</span>
-            <span className="text-indigo-600 font-bold">{telemetry.altitude.toLocaleString()} ft</span>
+
+          <div className="hidden lg:flex items-center gap-2 text-xs font-mono">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+              <span className="text-slate-400">RPM:</span>
+              <span className="text-indigo-600 font-bold">{telemetry.rpm}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+              <span className="text-slate-400">THROTTLE:</span>
+              <span className="text-emerald-600 font-bold">{telemetry.throttle}%</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+              <span className="text-slate-400">ALTITUDE:</span>
+              <span className="text-indigo-600 font-bold">{telemetry.altitude.toLocaleString()} ft</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Interactive Twin Visual Canvas */}
-      <div className="relative w-full bg-slate-950/90 rounded-xl border border-slate-800/80 p-4 min-h-[380px] flex flex-col justify-between shadow-inner">
+      {/* Conditionally Render 3D Simulation or 2D Cross-Section */}
+      {viewMode === '3D' ? (
+        <LiveEngine3DView
+          telemetry={telemetry}
+          physics={physics}
+          health={health}
+          diagnosis={diagnosis}
+          onSelectComponent={openComponentInspector}
+        />
+      ) : (
+        /* Main Interactive Twin Visual Canvas */
+        <div className="relative w-full bg-slate-950/90 rounded-xl border border-slate-800/80 p-4 min-h-[380px] flex flex-col justify-between shadow-inner">
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
 
@@ -426,6 +488,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           </span>
         </div>
       </div>
+      )}
 
       {/* Component Detail Modal / Drawer */}
       {selectedPart && (

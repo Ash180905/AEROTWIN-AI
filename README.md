@@ -14,7 +14,15 @@ Built specifically around turbocharged four-stroke aero piston engines (Rotax 91
 
 ## 🚀 Key Innovations & Capabilities
 
-### 1. Physics-Informed Digital Twin (Real-Time Physics vs AI)
+### 1. Live Interactive 3D WebGL Digital Twin Simulation
+- **Full 3D Kinematic Engine Simulation**: Modeled after turbocharged four-stroke boxer engines (Rotax 914/915 iS class) using Three.js and WebGL.
+- **Dynamic Physics Animation**: Real-time reciprocating boxer pistons (firing order 1-3-4-2), rotating crankshaft throws, spinning 3-blade composite propeller (with high-speed disc blur), and high-RPM turbocharger compressor impeller.
+- **Thermal Heatmap & Dynamic Shaders**: Real-time thermal glowing on exhaust headers and cylinder heads matching actual sensor CHT/EGT temperatures.
+- **X-Ray / Cutaway Housing Mode**: One-click transparent housing toggle to inspect internal mechanical moving parts.
+- **Physical Vibration Jitter**: Structural oscillation displacement applied dynamically to the engine block proportional to real-time vibration RMS (up to 4.8 mm/s).
+- **Interactive Component Raycaster**: 360° orbit rotation, multi-angle camera presets (ISO, Boxer, Propeller, Turbocharger), and click-to-inspect 3D raycasting.
+
+### 2. Physics-Informed Digital Twin (Real-Time Physics vs AI)
 - Coupled thermodynamic baseline calculating expected RPM, cylinder head temperatures (CHT 1–4), exhaust gas temperatures (EGT 1–4), oil pressure, and vibration profiles across varying altitudes and ambient conditions.
 - Continuous multivariate residual generation: $\text{Residual} = \text{Actual Sensor} - \text{Physics Expected}$.
 

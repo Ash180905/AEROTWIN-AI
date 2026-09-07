@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   EngineTelemetry, 
   FaultPreset, 
@@ -28,6 +28,8 @@ import { MissionReplayView } from './components/MissionReplayView';
 import { WhatIfMissionPlanner } from './components/WhatIfMissionPlanner';
 import { EnginePassportFleetView } from './components/EnginePassportFleetView';
 import { SubsystemHealthAlertOverlay } from './components/SubsystemHealthAlertOverlay';
+import { ExternalSimBridgeModal } from './components/ExternalSimBridgeModal';
+import { ExternalSimSplitView } from './components/ExternalSimSplitView';
 
 export default function App() {
   // Navigation tabs
@@ -44,6 +46,75 @@ export default function App() {
   const [isRunning, setIsRunning] = useState<boolean>(true);
   const [simSpeed, setSimSpeed] = useState<number>(1);
   const [missionElapsedHours, setMissionElapsedHours] = useState<number>(5.7);
+
+  // External Simulation Live Bridge State
+  const [isBridgeModalOpen, setIsBridgeModalOpen] = useState<boolean>(false);
+  const [isSplitViewActive, setIsSplitViewActive] = useState<boolean>(false);
+  const [externalSimUrl, setExternalSimUrl] = useState<string>(() => {
+    return localStorage.getItem('aerotwin_external_sim_url') || 'https://ai.studio/apps/16171890-ece0-41d4-a093-b2bcd8be3927';
+  });
+  const [lastSentEvent, setLastSentEvent] = useState<{ type: string; timestamp: number; payload: any } | null>(null);
+  const externalIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+
+  useEffect(() => {
+    try {
+      broadcastChannelRef.current = new BroadcastChannel('aerotwin_bridge_channel');
+    } catch (e) {
+      // BroadcastChannel fallback
+    }
+    return () => {
+      broadcastChannelRef.current?.close();
+    };
+  }, []);
+
+  const handleUpdateExternalUrl = (url: string) => {
+    setExternalSimUrl(url);
+    localStorage.setItem('aerotwin_external_sim_url', url);
+  };
+
+  const broadcastToExternalSim = useCallback((eventType: string, payload: any) => {
+    const eventMessage = {
+      source: 'AEROTWIN_AI',
+      type: eventType,
+      timestamp: Date.now(),
+      payload
+    };
+
+    // 1. PostMessage to embedded iframe if active
+    if (externalIframeRef.current?.contentWindow) {
+      try {
+        externalIframeRef.current.contentWindow.postMessage(eventMessage, '*');
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // 2. PostMessage to parent or opener
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(eventMessage, '*');
+    }
+    if (window.opener) {
+      window.opener.postMessage(eventMessage, '*');
+    }
+
+    // 3. BroadcastChannel across browser tabs
+    try {
+      broadcastChannelRef.current?.postMessage(eventMessage);
+    } catch (e) {
+      // ignore
+    }
+
+    setLastSentEvent(eventMessage);
+  }, []);
+
+  const handleSendTestPing = () => {
+    broadcastToExternalSim('PING_TEST', {
+      message: 'AeroTwin AI Live Bridge Connection Verified',
+      simUrl: externalSimUrl,
+      pingTime: Date.now()
+    });
+  };
 
   const selectedUav = useMemo(() => {
     return fleet.find((u) => u.id === selectedUavId) || fleet[0];
@@ -161,6 +232,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isRunning, simSpeed, activePreset]);
 
+  // Broadcast preset changes
+  useEffect(() => {
+    broadcastToExternalSim('FAULT_PRESET_CHANGE', {
+      preset: activePreset,
+      rpm: telemetry.rpm,
+      throttle: telemetry.throttle,
+      vibration: telemetry.vibration,
+      oilPressure: telemetry.oilPressure,
+      egt: telemetry.egt,
+      cylinderTemps: telemetry.cylinderTemps
+    });
+  }, [activePreset, broadcastToExternalSim]);
+
   // Reset simulation
   const handleReset = useCallback(() => {
     setActivePreset('NORMAL');
@@ -173,7 +257,12 @@ export default function App() {
       ...prev,
       throttle: val,
     }));
-  }, []);
+    broadcastToExternalSim('THROTTLE_CHANGE', {
+      throttle: val,
+      altitude: telemetry.altitude,
+      rpm: telemetry.rpm
+    });
+  }, [broadcastToExternalSim, telemetry.altitude, telemetry.rpm]);
 
   // Altitude adjustment
   const handleAltitudeChange = useCallback((val: number) => {
@@ -214,7 +303,21 @@ export default function App() {
         fleet={fleet}
         isCommsBlackout={isCommsBlackout}
         setIsCommsBlackout={setIsCommsBlackout}
+        onOpenBridgeModal={() => setIsBridgeModalOpen(true)}
+        isSplitViewActive={isSplitViewActive}
+        onToggleSplitView={() => setIsSplitViewActive(!isSplitViewActive)}
       />
+
+      {/* External Simulation Split View (if toggled) */}
+      {isSplitViewActive && (
+        <ExternalSimSplitView
+          externalUrl={externalSimUrl}
+          onClose={() => setIsSplitViewActive(false)}
+          onOpenSettings={() => setIsBridgeModalOpen(true)}
+          lastEventSummary={lastSentEvent ? `${lastSentEvent.type} (${lastSentEvent.payload.preset || lastSentEvent.payload.throttle || ''})` : ''}
+          iframeRef={externalIframeRef}
+        />
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
@@ -332,6 +435,20 @@ export default function App() {
           <span>Rotax 914 / 915 iS Digital Twin Core</span>
         </div>
       </footer>
+
+      {/* External Simulation Bridge Modal */}
+      <ExternalSimBridgeModal
+        isOpen={isBridgeModalOpen}
+        onClose={() => setIsBridgeModalOpen(false)}
+        externalUrl={externalSimUrl}
+        onUpdateExternalUrl={handleUpdateExternalUrl}
+        isSplitViewActive={isSplitViewActive}
+        onToggleSplitView={() => setIsSplitViewActive(!isSplitViewActive)}
+        onSendTestPing={handleSendTestPing}
+        lastSentEvent={lastSentEvent}
+        telemetry={telemetry}
+        activePreset={activePreset}
+      />
     </div>
   );
 }
