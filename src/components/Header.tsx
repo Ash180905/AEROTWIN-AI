@@ -10,13 +10,14 @@ import {
   Sliders, 
   FileText,
   WifiOff,
-  Lock
+  Lock,
+  Box
 } from 'lucide-react';
 import { UAVFleetItem } from '../types';
 
 interface HeaderProps {
-  activeTab: 'twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport';
-  setActiveTab: (tab: 'twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport') => void;
+  activeTab: 'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport';
+  setActiveTab: (tab: 'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport') => void;
   selectedUav: UAVFleetItem;
   setSelectedUavId: (id: string) => void;
   fleet: UAVFleetItem[];
@@ -141,6 +142,26 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Activity className="w-3.5 h-3.5" />
             <span>Digital Twin Cockpit</span>
+          </button>
+
+          <button
+            id="tab-3d-twin"
+            onClick={() => setActiveTab('3d-twin')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap cursor-pointer ${
+              activeTab === '3d-twin'
+                ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+            }`}
+          >
+            <Box className="w-3.5 h-3.5 text-indigo-400" />
+            <span>3D Virtual Twin</span>
+            <span className={`text-[9px] px-1 py-0.5 rounded font-mono font-bold ${
+              activeTab === '3d-twin'
+                ? 'bg-indigo-500/80 text-white'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}>
+              60 FPS
+            </span>
           </button>
 
           <button

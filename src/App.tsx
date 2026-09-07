@@ -30,10 +30,22 @@ import { EnginePassportFleetView } from './components/EnginePassportFleetView';
 import { SubsystemHealthAlertOverlay } from './components/SubsystemHealthAlertOverlay';
 import { ExternalSimBridgeModal } from './components/ExternalSimBridgeModal';
 import { ExternalSimSplitView } from './components/ExternalSimSplitView';
+import { Dedicated3DTwinView } from './components/Dedicated3DTwinView';
 
 export default function App() {
-  // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport'>('twin');
+  // Navigation tabs - checks URL param ?view=3d or ?view=3d-twin for standalone popouts
+  const [activeTab, setActiveTab] = useState<'twin' | '3d-twin' | 'counterfactual' | 'replay' | 'whatif' | 'passport'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view');
+      if (view === '3d' || view === '3d-twin') {
+        return '3d-twin';
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'twin';
+  });
 
   // Airframe selection
   const [fleet, setFleet] = useState<UAVFleetItem[]>(SAMPLE_FLEET);
@@ -352,6 +364,7 @@ export default function App() {
                   physics={physics}
                   health={health}
                   diagnosis={diagnosis}
+                  onOpenDedicated3D={() => setActiveTab('3d-twin')}
                 />
               </div>
               <div className="lg:col-span-1">
@@ -375,6 +388,24 @@ export default function App() {
               />
             </div>
           </div>
+        )}
+
+        {/* VIEW: DEDICATED 3D VIRTUAL TWIN STUDIO (ISOLATED 60 FPS PERFORMANCE) */}
+        {activeTab === '3d-twin' && (
+          <Dedicated3DTwinView
+            telemetry={telemetry}
+            physics={physics}
+            health={health}
+            diagnosis={diagnosis}
+            activePreset={activePreset}
+            onSelectPreset={setActivePreset}
+            onThrottleChange={handleThrottleChange}
+            onAltitudeChange={handleAltitudeChange}
+            onReset={handleReset}
+            onBackToCockpit={() => setActiveTab('twin')}
+            externalAppUrl={externalSimUrl}
+            onBroadcastEvent={broadcastToExternalSim}
+          />
         )}
 
         {/* VIEW 2: COUNTERFACTUAL ADVISOR & EXPLAINABLE AI (XAI) */}

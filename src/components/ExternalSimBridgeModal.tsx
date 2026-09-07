@@ -232,7 +232,7 @@ export function useAeroTwinBridge(onEventReceived?: (event: any) => void) {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Configured to your 3D simulation app: <span className="text-indigo-400 font-mono">16171890-ece0-41d4-a093-b2bcd8be3927</span>
+                  Target: <span className="text-indigo-400 font-mono">{urlInput}</span>
                 </p>
               </form>
 

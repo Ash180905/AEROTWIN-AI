@@ -4,7 +4,8 @@ import {
   EngineTelemetry, 
   PhysicsExpectedModel, 
   EngineSubsystemHealth, 
-  FaultDiagnosis 
+  FaultDiagnosis,
+  FaultPreset 
 } from '../types';
 import { 
   Eye, 
@@ -25,6 +26,7 @@ interface LiveEngine3DViewProps {
   physics: PhysicsExpectedModel;
   health: EngineSubsystemHealth;
   diagnosis: FaultDiagnosis;
+  activePreset?: FaultPreset;
   onSelectComponent: (partKey: string) => void;
 }
 
@@ -33,6 +35,7 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
   physics,
   health,
   diagnosis,
+  activePreset = 'NORMAL',
   onSelectComponent,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -59,6 +62,8 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
   const crankRef = useRef<THREE.Group | null>(null);
   const combustionLightsRef = useRef<THREE.PointLight[]>([]);
   const housingMeshesRef = useRef<THREE.Mesh[]>([]);
+  const bearingMeshesRef = useRef<THREE.Mesh[]>([]);
+  const sensorProbeRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
 
@@ -74,6 +79,7 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
   const telemetryRef = useRef(telemetry);
   const diagnosisRef = useRef(diagnosis);
   const healthRef = useRef(health);
+  const activePresetRef = useRef(activePreset);
   const isXrayModeRef = useRef(isXrayMode);
   const isThermalModeRef = useRef(isThermalMode);
 
@@ -81,9 +87,10 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
     telemetryRef.current = telemetry;
     diagnosisRef.current = diagnosis;
     healthRef.current = health;
+    activePresetRef.current = activePreset;
     isXrayModeRef.current = isXrayMode;
     isThermalModeRef.current = isThermalMode;
-  }, [telemetry, diagnosis, health, isXrayMode, isThermalMode]);
+  }, [telemetry, diagnosis, health, activePreset, isXrayMode, isThermalMode]);
 
   // Update camera position from spherical coords
   const updateCameraPosition = useCallback(() => {
@@ -275,6 +282,25 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
     crankShaftMesh.rotation.x = Math.PI / 2;
     crankGroup.add(crankShaftMesh);
 
+    // Journal bearings (front, center, rear) with active thermal/friction responsiveness
+    bearingMeshesRef.current = [];
+    const bearingPositions = [-1.1, 0, 1.1];
+    bearingPositions.forEach((bz) => {
+      const bGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.35, 20);
+      const bMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706,
+        metalness: 0.85,
+        roughness: 0.25,
+        emissive: new THREE.Color(0x000000)
+      });
+      const bMesh = new THREE.Mesh(bGeo, bMat);
+      bMesh.rotation.x = Math.PI / 2;
+      bMesh.position.set(0, 0, bz);
+      bMesh.name = 'bearing';
+      crankGroup.add(bMesh);
+      bearingMeshesRef.current.push(bMesh);
+    });
+
     cylinderPositions.forEach((pos, idx) => {
       // Cylinder Barrel with cooling fins
       const cylBarrelGroup = new THREE.Group();
@@ -321,6 +347,22 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
       sparkMesh.position.set(pos.side * 2.8, 0.95, pos.z);
       sparkMesh.name = pos.id;
       engineGroup.add(sparkMesh);
+
+      // Cylinder 2 CHT Sensor Transducer Probe with diagnostic signal response
+      if (pos.id === 'cyl-2') {
+        const sensorGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.6, 12);
+        const sensorMat = new THREE.MeshStandardMaterial({
+          color: 0xfacc15,
+          metalness: 0.6,
+          roughness: 0.25,
+          emissive: new THREE.Color(0x000000)
+        });
+        const sensorMesh = new THREE.Mesh(sensorGeo, sensorMat);
+        sensorMesh.position.set(pos.side * 2.8, 0.8, pos.z + 0.3);
+        sensorMesh.name = 'cyl-2';
+        engineGroup.add(sensorMesh);
+        sensorProbeRef.current = sensorMesh;
+      }
 
       // Internal Reciprocating Piston
       const pistonGeo = new THREE.CylinderGeometry(0.66, 0.66, 0.65, 20);
@@ -727,28 +769,76 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
         }
       });
 
-      // 6. Cylinder Head Thermal Colors
+      // 6. Cylinder Head Thermal Colors & Cooling Leak Response
+      const isCoolingLeak = activePresetRef.current === 'COOLING_LEAK' || diag.faultTitle.includes('Cooling') || telem.coolantTemp > 105;
       cylHeadsRef.current.forEach((head, idx) => {
         const cht = telem.cylinderTemps[idx];
-        const isCyl3Fault = idx === 1 && diag.faultTitle.includes('Injector');
-        const isSensorGlitch = idx === 2 && diag.isSensorFaultOnly;
+        const isCyl3Fault = (idx === 1 || idx === 2) && (activePresetRef.current === 'INJECTOR_MISFIRE' || diag.faultTitle.includes('Injector'));
+        const isSensorGlitch = idx === 1 && (activePresetRef.current === 'SENSOR_MALFUNCTION' || diag.isSensorFaultOnly);
         const mat = head.material as THREE.MeshStandardMaterial;
 
         if (isThermal) {
           const tNorm = Math.max(0, Math.min(1, (cht - 160) / 90));
           mat.color.setHSL(0.6 * (1 - tNorm), 0.85, 0.5);
+          mat.emissive.setHSL(0.05, 0.9, isCoolingLeak ? 0.5 : tNorm * 0.3);
         } else {
-          if (isCyl3Fault || cht > 225) {
+          if (isCoolingLeak) {
+            // High thermal overload across entire block
+            const pulse = (Math.sin(clock.getElapsedTime() * 5) + 1) * 0.5;
+            mat.color.setHex(0xb91c1c);
+            mat.emissive.setHex(0x991b1b);
+            mat.emissiveIntensity = 0.4 + pulse * 0.4;
+          } else if (isCyl3Fault || cht > 225) {
             mat.color.setHex(0x991b1b); // dark red
+            mat.emissive.setHex(0x7f1d1d);
+            mat.emissiveIntensity = 0.3;
           } else if (isSensorGlitch) {
             mat.color.setHex(0x854d0e); // amber sensor glitch highlight
+            mat.emissive.setHex(0x000000);
+            mat.emissiveIntensity = 0;
           } else if (cht > 210) {
             mat.color.setHex(0xb45309); // amber warm
+            mat.emissive.setHex(0x000000);
+            mat.emissiveIntensity = 0;
           } else {
             mat.color.setHex(0x64748b); // nominal slate
+            mat.emissive.setHex(0x000000);
+            mat.emissiveIntensity = 0;
           }
         }
       });
+
+      // 6b. Dynamic Journal Bearing Friction / Wear Glow
+      const isBearingFault = activePresetRef.current === 'BEARING_LUBRICATION' || diag.faultTitle.includes('Bearing') || diag.faultTitle.includes('Lubrication') || telem.vibration > 3.0;
+      bearingMeshesRef.current.forEach((bMesh, bIdx) => {
+        const bMat = bMesh.material as THREE.MeshStandardMaterial;
+        if (isBearingFault) {
+          // Center bearing suffers high hydrodynamic shear stress
+          const pulse = (Math.sin(clock.getElapsedTime() * 8) + 1) * 0.5;
+          bMat.color.setHex(bIdx === 1 ? 0xef4444 : 0xf97316);
+          bMat.emissive.setHex(bIdx === 1 ? 0xdc2626 : 0xea580c);
+          bMat.emissiveIntensity = 0.8 + pulse * 0.6;
+        } else {
+          bMat.color.setHex(0xd97706);
+          bMat.emissive.setHex(0x000000);
+          bMat.emissiveIntensity = 0;
+        }
+      });
+
+      // 6c. Dynamic Sensor Transducer Glitch Blinking
+      if (sensorProbeRef.current) {
+        const sMat = sensorProbeRef.current.material as THREE.MeshStandardMaterial;
+        if (activePresetRef.current === 'SENSOR_MALFUNCTION' || diag.isSensorFaultOnly) {
+          const blink = Math.sin(clock.getElapsedTime() * 10) > 0 ? 1 : 0.2;
+          sMat.color.setHex(0xfacc15);
+          sMat.emissive.setHex(0xeab308);
+          sMat.emissiveIntensity = blink;
+        } else {
+          sMat.color.setHex(0x64748b);
+          sMat.emissive.setHex(0x000000);
+          sMat.emissiveIntensity = 0;
+        }
+      }
 
       // 7. X-Ray Transparency Control
       housingMeshesRef.current.forEach((mesh) => {
@@ -766,7 +856,7 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
 
       // 8. Mechanical Vibration Shake (Real-time physical displacement)
       if (engineGroupRef.current) {
-        const vibFactor = Math.max(0, (telem.vibration - 1.8) * 0.015);
+        const vibFactor = Math.max(0, (telem.vibration - 1.5) * 0.024);
         if (vibFactor > 0) {
           engineGroupRef.current.position.x = (Math.random() - 0.5) * vibFactor;
           engineGroupRef.current.position.y = (Math.random() - 0.5) * vibFactor;

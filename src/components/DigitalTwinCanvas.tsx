@@ -19,15 +19,17 @@ import {
   X,
   Activity,
   Box,
-  Compass
+  Compass,
+  Maximize2,
+  ExternalLink
 } from 'lucide-react';
-import { LiveEngine3DView } from './LiveEngine3DView';
 
 interface DigitalTwinCanvasProps {
   telemetry: EngineTelemetry;
   physics: PhysicsExpectedModel;
   health: EngineSubsystemHealth;
   diagnosis: FaultDiagnosis;
+  onOpenDedicated3D?: () => void;
 }
 
 interface ComponentDetail {
@@ -44,12 +46,12 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   physics,
   health,
   diagnosis,
+  onOpenDedicated3D,
 }) => {
-  const [viewMode, setViewMode] = useState<'3D' | '2D'>('3D');
   const [pistonCycle, setPistonCycle] = useState(0);
   const [selectedPart, setSelectedPart] = useState<ComponentDetail | null>(null);
 
-  // Animate piston reciprocating stroke
+  // Animate piston reciprocating stroke for 2D schematic
   useEffect(() => {
     let animationFrameId: number;
     let lastTime = performance.now();
@@ -195,36 +197,28 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View Mode Switcher */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-mono">
-            <button
-              id="btn-viewmode-3d"
-              onClick={() => setViewMode('3D')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
-                viewMode === '3D' 
-                  ? 'bg-indigo-600 text-white shadow-xs' 
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              <Box className="w-3.5 h-3.5" />
-              <span>3D Virtual Twin</span>
-              <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-400/20 text-emerald-300 font-normal">
-                LIVE
+          {/* 2D Mode Indicator & Launch 3D Page CTA */}
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-700 font-bold">
+              <Compass className="w-3.5 h-3.5 text-indigo-600" />
+              <span>2D Thermodynamic Cross-Section</span>
+              <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-700 font-mono font-bold">
+                ZERO LAG
               </span>
-            </button>
+            </div>
 
-            <button
-              id="btn-viewmode-2d"
-              onClick={() => setViewMode('2D')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
-                viewMode === '2D' 
-                  ? 'bg-indigo-600 text-white shadow-xs' 
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>2D Cross-Section</span>
-            </button>
+            {onOpenDedicated3D && (
+              <button
+                id="btn-launch-dedicated-3d"
+                onClick={onOpenDedicated3D}
+                title="Launch 3D Virtual Twin in dedicated full-performance studio"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs"
+              >
+                <Box className="w-3.5 h-3.5 text-indigo-200" />
+                <span>Open 3D Virtual Twin</span>
+                <ExternalLink className="w-3 h-3 text-indigo-300" />
+              </button>
+            )}
           </div>
 
           <div className="hidden lg:flex items-center gap-2 text-xs font-mono">
@@ -244,18 +238,8 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         </div>
       </div>
 
-      {/* Conditionally Render 3D Simulation or 2D Cross-Section */}
-      {viewMode === '3D' ? (
-        <LiveEngine3DView
-          telemetry={telemetry}
-          physics={physics}
-          health={health}
-          diagnosis={diagnosis}
-          onSelectComponent={openComponentInspector}
-        />
-      ) : (
-        /* Main Interactive Twin Visual Canvas */
-        <div className="relative w-full bg-slate-950/90 rounded-xl border border-slate-800/80 p-4 min-h-[380px] flex flex-col justify-between shadow-inner">
+      {/* Main Interactive Twin Visual Canvas */}
+      <div className="relative w-full bg-slate-950/90 rounded-xl border border-slate-800/80 p-4 min-h-[380px] flex flex-col justify-between shadow-inner">
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
 
@@ -488,7 +472,6 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           </span>
         </div>
       </div>
-      )}
 
       {/* Component Detail Modal / Drawer */}
       {selectedPart && (
