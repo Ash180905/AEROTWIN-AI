@@ -1,173 +1,106 @@
-# AeroTwin AI ✈️ ⚙️
-### AI-Enabled Real-Time Digital Twin System for Health Monitoring, Fault Prediction, and Mission Reliability of MALE UAV Aero Piston Engines
-**Smart India Hackathon (SIH 2024 / SIH26054) | Defense Research & Development Organisation (DRDO) / ADE Specification**
+# AeroTwin — Operator Dashboard
+
+**SIH 2026 · Problem Statement 26054 · DRDO**
+Ground control station interface for the MALE UAV aero piston engine digital twin.
+
+The backend — twin core, models and API — lives in
+[`digitwin-be`](https://github.com/bharani-coder-27/digitwin-be).
 
 ---
 
-## 📌 Executive Summary
+## What this is
 
-**AeroTwin AI** is a defense-grade, physics-informed digital twin cockpit and predictive health monitoring system engineered for Medium Altitude Long Endurance (MALE) Unmanned Aerial Vehicles (such as DRDO Rustom-II / TAPAS-BH-201). 
+A dashboard for UAV operators, propulsion engineers and maintenance crews. It shows what
+the engine is doing, what a healthy engine *would* be doing at the same operating point,
+and what four trained models make of the difference.
 
-Built specifically around turbocharged four-stroke aero piston engines (Rotax 914 / 915 iS class), AeroTwin AI bridges physical thermodynamics with real-time deep learning to predict failures **hours before standard threshold alarms trigger**, discriminate sensor anomalies from physical mechanical breakdowns, and recommend tactical counterfactual flight adjustments to guarantee mission completion.
+**Nothing on this page is computed in the browser.** Every number — residuals, subsystem
+health, fault classification, remaining useful life, counterfactual projections — arrives
+over a WebSocket from the ground station, which derives it from physics residuals and ONNX
+inference. The frame carries `ai.inference_ms` and `ai.source`, shown in the footer, so
+you can see the assessment was computed and where.
 
----
+This matters because the previous version of this app faked its intelligence in 491 lines
+of TypeScript. That file is gone.
 
-## 🚀 Key Innovations & Capabilities
+## Views
 
-### 1. Live Interactive 3D WebGL Digital Twin Simulation
-- **Full 3D Kinematic Engine Simulation**: Modeled after turbocharged four-stroke boxer engines (Rotax 914/915 iS class) using Three.js and WebGL.
-- **Dynamic Physics Animation**: Real-time reciprocating boxer pistons (firing order 1-3-4-2), rotating crankshaft throws, spinning 3-blade composite propeller (with high-speed disc blur), and high-RPM turbocharger compressor impeller.
-- **Thermal Heatmap & Dynamic Shaders**: Real-time thermal glowing on exhaust headers and cylinder heads matching actual sensor CHT/EGT temperatures.
-- **X-Ray / Cutaway Housing Mode**: One-click transparent housing toggle to inspect internal mechanical moving parts.
-- **Physical Vibration Jitter**: Structural oscillation displacement applied dynamically to the engine block proportional to real-time vibration RMS (up to 4.8 mm/s).
-- **Interactive Component Raycaster**: 360° orbit rotation, multi-angle camera presets (ISO, Boxer, Propeller, Turbocharger), and click-to-inspect 3D raycasting.
+| Tab | What it shows |
+|---|---|
+| **Live cockpit** | Telemetry with physics expectation beside it, AI assessment, subsystem health, residual table, latching alerts |
+| **3D twin** | Three.js kinematic model — pistons, crank, turbo impeller, propeller, thermal shading and vibration jitter all driven by live telemetry |
+| **Trends** | Health trajectory, anomaly score against its limit, residual drift, RUL over the sortie |
+| **Diagnosis & advisory** | Engine-vs-instrument evidence, counterfactual options, maintenance actions, feature attribution |
+| **Mission replay** | Recorded sorties, timeline scrubber, post-flight health report |
+| **Fleet** | Squadron readiness and the digital engine passport |
+| **Evidence** | Loaded models with their metrics, the NASA C-MAPSS benchmark, and what the system has *not* demonstrated |
 
-### 2. Physics-Informed Digital Twin (Real-Time Physics vs AI)
-- Coupled thermodynamic baseline calculating expected RPM, cylinder head temperatures (CHT 1–4), exhaust gas temperatures (EGT 1–4), oil pressure, and vibration profiles across varying altitudes and ambient conditions.
-- Continuous multivariate residual generation: $\text{Residual} = \text{Actual Sensor} - \text{Physics Expected}$.
+### The view worth demonstrating
 
-### 2. Subsystem Health Scoring & Alert Notification Overlay
-- Real-time degradation evaluation across 6 critical subsystems:
-  - **Combustion Chamber**
-  - **Lubrication & Oil Film**
-  - **Thermal Cooling**
-  - **Fuel Injection Rail**
-  - **Mechanical Bearings & Crankshaft**
-  - **ECU & Sensor Bus**
-- **Automated Health Threshold Breach Overlay**: Triggers instantly when any subsystem score drops below **70%**, surfacing:
-  - Mechanistic root-cause summary of the active fault preset.
-  - Deviating real-time sensor signatures.
-  - Operational risk horizon and failure time estimate.
-  - Recommended pilot/operator tactical countermeasure.
-  - Interactive controls to acknowledge/minimize to a floating HUD chip or reset flight profile.
+**Diagnosis & advisory**, with a sensor drift injected. A thermocouple failing 145 °C high
+trips any threshold system and aborts a sortie on a serviceable aircraft. This dashboard
+shows the corroboration evidence — coolant, oil and vibration all flat while one head
+reads hot — calls it instrumentation, keeps the alert at *advisory*, and recommends
+continuing the mission. Recovery stays on the panel as a command decision, explicitly not
+advised by the engine evidence.
 
-### 3. Sensor Fault vs Engine Fault Discrimination
-- Solves a major defense aviation hazard: distinguishes between true physical failures and transducer/sensor biases.
-- Isolated sensor anomalies (e.g. CHT #2 false spikes) are cross-referenced with correlated EGT and coolant thermodynamic channels using autoencoder residual correlation, avoiding false aborts.
+## Running it
 
-### 4. Explainable AI (XAI) with SHAP Attribution
-- Transparent feature attribution identifying exact sensor contributions to fault classifications.
-- Provides defense operators with interpretable evidence rather than black-box AI decisions.
+The backend must be running first — see its README. Then:
 
-### 5. Remaining Useful Life (RUL) & Mission Reliability Index (MRI)
-- Weibull-accelerated degradation modeling estimating remaining flight hours before component boundary failure.
-- Mission Completion Probability calculation dynamically evaluated against flight duration and route waypoints.
-
-### 6. In-Flight Counterfactual Tactical Advisor
-- Evaluates real-time "what-if" operational trade-offs:
-  - **De-rate Throttle** (reduces bearing load and lowers oil temperatures).
-  - **Descend to Cooler Layer** (enhances convective air density and intercooler efficiency).
-  - **Maintain Profile with Monitoring** (assesses risk for mission-critical objectives).
-  - **Tactical Return to Base (RTB)** (safeguards the asset).
-
-### 7. Mission 034 Flight Replay & What-If Mission Planner
-- Comprehensive post-flight timeline scrubber and replay with synchronized telemetry snapshots and fault probability curves.
-- Predictive scenario simulator for ambient heat waves, extended high-altitude loitering, and payload changes.
-
-### 8. Digital Engine Passport & Fleet-Level Airframe Command
-- Tamper-proof lifecycle registry tracking total operating hours, component life limits, and overhaul history.
-- Fleet-level readiness dashboard for multi-UAV operational status monitoring.
-
----
-
-## 🛠️ Technology Stack
-
-- **Frontend Framework**: React 19 + TypeScript
-- **Styling & Design System**: Tailwind CSS (Sleek defense cockpit theme with high contrast, crisp typography, and mathematical border radii)
-- **Animations**: Motion (`motion/react`)
-- **Icons**: Lucide React
-- **Build Tool**: Vite
-- **Backend / Proxy**: Node.js & Express (supports server-side AI integrations)
-
----
-
-## 📂 Project Structure
-
-```
-├── index.html                       # HTML5 entry point & metadata
-├── metadata.json                    # AI Studio applet specifications
-├── package.json                     # Project manifest & dependencies
-├── src/
-│   ├── App.tsx                      # Primary application controller & state
-│   ├── main.tsx                     # React DOM entry point
-│   ├── index.css                    # Tailwind CSS configuration
-│   ├── types.ts                     # TypeScript schemas & telemetry interfaces
-│   ├── components/
-│   │   ├── Header.tsx               # Defense mission header & airframe selector
-│   │   ├── FaultInjectorBar.tsx     # Scenario injector & simulation controls
-│   │   ├── TelemetryGaugesBar.tsx   # Real-time radial dials & residual readouts
-│   │   ├── DigitalTwinCanvas.tsx    # Interactive 2D/3D engine component replica
-│   │   ├── SubsystemHealthPanel.tsx # Subsystem health scores & sensor discriminator
-│   │   ├── SubsystemHealthAlertOverlay.tsx # Overlay for scores < 70% threshold
-│   │   ├── ResidualAnalysisView.tsx # Physics vs sensor residual audit matrix
-│   │   ├── RulMissionReliability.tsx# RUL predictions & mission reliability gauge
-│   │   ├── CounterfactualAdvisor.tsx# In-flight tactical decision advisor
-│   │   ├── XaiDiagnosisPanel.tsx    # SHAP feature attribution & explainability
-│   │   ├── MissionReplayView.tsx    # Mission 034 flight scrubber & telemetry replay
-│   │   ├── WhatIfMissionPlanner.tsx # Scenario stress-testing & flight planner
-│   │   └── EnginePassportFleetView.tsx # Digital Engine Passport & fleet command
-│   └── utils/
-│       ├── enginePhysics.ts         # Thermodynamic engine models & AI evaluators
-│       └── simulationData.ts        # Fleet data, mission logs, & baseline telemetry
-```
-
----
-
-## ⚡ Quick Start
-
-### 1. Clone or Download Repository
-```bash
-git clone https://github.com/<your-username>/aerotwin-ai.git
-cd aerotwin-ai
-```
-
-### 2. Install Dependencies
 ```bash
 npm install
-```
-
-### 3. Run Development Server
-```bash
 npm run dev
 ```
-Open your browser and navigate to `http://localhost:3000`.
 
-### 4. Build for Production
+Open http://localhost:3000.
+
+The dev server proxies `/api` to `http://127.0.0.1:8000`, so the browser stays on one
+origin: no CORS preflight, and the WebSocket upgrade travels the same path as the REST
+calls. Point `VITE_BACKEND_URL` elsewhere to drive a remote ground station.
+
 ```bash
-npm run build
+npm run build       # typecheck + production build
+npm run typecheck   # types only
 ```
 
----
+## How it is wired
 
-## 🚢 Publishing to GitHub
-
-### Option A: Via Google AI Studio UI (Easiest)
-1. In Google AI Studio, click on the **Settings / More Options** menu (top right).
-2. Select **Export to GitHub** or **Download ZIP**.
-3. Follow the prompt to connect your GitHub account and choose your repository name.
-
-### Option B: Via Git Command Line
-```bash
-# Initialize git repository
-git init
-
-# Add all project files
-git add .
-
-# Create initial commit
-git commit -m "Initial commit: AeroTwin AI Digital Twin System (SIH26054)"
-
-# Set main branch
-git branch -M main
-
-# Link to your remote GitHub repository
-git remote add origin https://github.com/<your-username>/<your-repo-name>.git
-
-# Push code to GitHub
-git push -u origin main
+```
+  WebSocket /api/ws/telemetry ──▶ TelemetrySocket ──▶ twinStore (zustand) ──▶ every panel
+  REST /api/...               ──▶ api client      ──▶ panels that pull on demand
 ```
 
----
+```
+src/
+  api/        contract types, REST client, reconnecting socket
+  store/      live frame + bounded history ring buffer
+  components/ the panels
+  engine3d/   the Three.js scene, with its own prop vocabulary
+  lib/        formatting, and the one adapter between wire format and 3D scene
+```
 
-## 📄 License
-This project is developed for defense aviation research and Smart India Hackathon (SIH26054). Distributed under the MIT License.
+Two decisions worth knowing:
+
+**The store is bounded.** A 20-hour sortie at 1 Hz would otherwise grow without limit in a
+tab meant to stay open for a whole mission. Charts render a few hundred points; the full
+record lives in the backend's mission store, where replay reaches it.
+
+**The 3D scene keeps its own types.** It speaks per-cylinder arrays and preset names; the
+backend speaks residuals and fault classes. `lib/adapt3d.ts` is the only place the two
+meet, so a schema change does not ripple through a thousand lines of scene graph.
+
+## Contract
+
+Types in `src/api/types.ts` mirror the backend's Pydantic schemas. To regenerate from the
+published schema instead:
+
+```bash
+npx openapi-typescript ../digitwin-be/openapi.json -o src/api/generated.ts
+```
+
+If the two ever disagree, the backend schema wins.
+
+## License
+
+Developed for Smart India Hackathon 2026 (PS 26054). MIT.

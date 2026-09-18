@@ -1,6 +1,0 @@
-{
-  "name": "rotax-sim",
-  "scripts": {
-    "start": "npx serve -s -p $PORT"
-  }
-}
