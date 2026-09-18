@@ -1,17 +1,15 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { 
-  EngineTelemetry, 
-  PhysicsExpectedModel, 
-  EngineSubsystemHealth, 
+import type {
+  EngineTelemetry,
+  PhysicsExpectedModel,
+  EngineSubsystemHealth,
   FaultDiagnosis,
-  FaultPreset 
-} from '../types';
+  FaultPreset,
+} from './types';
 import { 
   Eye, 
   RotateCw, 
-  Layers, 
-  Sparkles, 
   Maximize2, 
   Minimize2, 
   Crosshair, 
@@ -23,7 +21,7 @@ import {
 
 interface LiveEngine3DViewProps {
   telemetry: EngineTelemetry;
-  physics: PhysicsExpectedModel;
+  physics?: PhysicsExpectedModel;
   health: EngineSubsystemHealth;
   diagnosis: FaultDiagnosis;
   activePreset?: FaultPreset;
@@ -32,7 +30,6 @@ interface LiveEngine3DViewProps {
 
 export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
   telemetry,
-  physics,
   health,
   diagnosis,
   activePreset = 'NORMAL',
@@ -301,7 +298,7 @@ export const LiveEngine3DView: React.FC<LiveEngine3DViewProps> = ({
       bearingMeshesRef.current.push(bMesh);
     });
 
-    cylinderPositions.forEach((pos, idx) => {
+    cylinderPositions.forEach((pos) => {
       // Cylinder Barrel with cooling fins
       const cylBarrelGroup = new THREE.Group();
       cylBarrelGroup.position.set(pos.side * 1.8, 0.4, pos.z);
