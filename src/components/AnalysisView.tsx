@@ -106,9 +106,27 @@ function SensorEvidencePanel({ evidence }: { evidence: SensorEvidence }) {
         <div className="mt-1 font-mono text-xs text-slate-600">
           instrumentation probability {(evidence.sensor_fault_prob * 100).toFixed(1)}%
         </div>
+        <div className="mt-1 text-[11px] text-slate-500">
+          Decided by: {evidence.decided_by}
+        </div>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-slate-600">{evidence.explanation}</p>
+
+      {/* The intercept is shown because it usually decides the outcome. Listing
+          only the feature terms produced a panel where the evidence appeared to
+          contradict the verdict printed directly above it. */}
+      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px]">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="font-medium text-slate-700">
+            Starting point (before any evidence)
+          </span>
+          <span className="font-mono font-semibold text-slate-800">
+            {evidence.baseline.toFixed(2)}
+          </span>
+        </div>
+        <p className="mt-0.5 leading-snug text-slate-500">{evidence.baseline_meaning}</p>
+      </div>
 
       <table className="mt-3 w-full text-xs">
         <thead>
@@ -142,8 +160,22 @@ function SensorEvidencePanel({ evidence }: { evidence: SensorEvidence }) {
               </td>
             </tr>
           ))}
+          <tr className="border-t-2 border-slate-300">
+            <td className="py-1.5 font-medium text-slate-700">Total</td>
+            <td />
+            <td className="py-1.5 text-right font-mono font-semibold text-slate-900">
+              {evidence.total_logit.toFixed(2)}
+            </td>
+            <td className="py-1.5 pl-3 text-[10px] text-slate-500">
+              {evidence.total_logit > 0 ? 'net: sensor' : 'net: engine'}
+            </td>
+          </tr>
         </tbody>
       </table>
+      <p className="mt-2 text-[11px] text-slate-500">
+        Baseline plus each term sums to the total, and the total sets the probability
+        above — so what is shown adds up to the verdict being acted on.
+      </p>
     </Panel>
   );
 }

@@ -241,7 +241,12 @@ export interface SensorEvidence {
   is_sensor_fault: boolean;
   sensor_fault_prob: number;
   verdict: string;
+  decided_by: string;
   evidence: SensorEvidenceItem[];
+  /** The discriminator's intercept: a standing prior that a deviation is mechanical. */
+  baseline: number;
+  baseline_meaning: string;
+  total_logit: number;
   explanation: string;
 }
 
